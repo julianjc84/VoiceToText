@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Voice to Text
+Comment=System-wide voice-to-text dictation tool for Linux
+Exec=voice-to-text
+Icon=voice-to-text
+Terminal=false
+Type=Application
+Categories=Utility;Accessibility;Audio;
+Keywords=voice;dictation;speech;transcription;whisper;
+StartupNotify=false

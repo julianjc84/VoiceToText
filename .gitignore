@@ -1,0 +1,29 @@
+# Rust
+/target
+Cargo.lock
+
+# Python (legacy prototypes)
+*.pyc
+__pycache__/
+venv/
+
+# Claude Code
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models (downloaded at runtime)
+*.bin
+*.onnx
+
+# Reference repos for research
+reference-apps/
