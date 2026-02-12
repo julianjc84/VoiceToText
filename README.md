@@ -2,6 +2,9 @@
 
 System-wide voice-to-text dictation tool for Linux. Transcribes speech using [whisper.cpp](https://github.com/ggerganov/whisper.cpp) and types the result directly into the focused window.
 
+![Settings](assets/screenshots/settings.png)
+![Transcripts](assets/screenshots/transcripts.png)
+
 ## Features
 
 - **Push-to-Talk** — hold a hotkey, speak, release to transcribe and type
@@ -90,6 +93,8 @@ The push-to-talk hotkey behavior depends on the mode selected in settings:
 - **Toggle** — press once to start recording, press again to stop
 
 ### Tray icon
+
+![Tray Icon](assets/screenshots/tray-icon.png)
 
 - **Left-click** — opens the settings window
 - **Right-click** — context menu with:
