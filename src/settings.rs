@@ -618,6 +618,50 @@ fn build_settings_page(
     clip_box.pack_start(&clip_check, false, false, 0);
     vbox.pack_start(&clip_frame, false, false, 0);
 
+    // --- Audio Ducking section ---
+    let (duck_frame, duck_box) = create_section("Audio Ducking");
+
+    let duck_check = gtk::CheckButton::with_label("Lower system volume during recording");
+    duck_check.set_active(config.audio_ducking_enabled);
+
+    let duck_vol_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let duck_vol_label = gtk::Label::new(Some("Volume level:"));
+    duck_vol_label.set_xalign(0.0);
+
+    let duck_vol_spin = gtk::SpinButton::with_range(0.0, 100.0, 5.0);
+    duck_vol_spin.set_value(config.audio_duck_volume as f64);
+    duck_vol_spin.set_digits(0);
+    duck_vol_spin.set_sensitive(config.audio_ducking_enabled);
+
+    let duck_pct_label = gtk::Label::new(Some("%"));
+
+    duck_vol_row.pack_start(&duck_vol_label, false, false, 0);
+    duck_vol_row.pack_start(&duck_vol_spin, false, false, 0);
+    duck_vol_row.pack_start(&duck_pct_label, false, false, 0);
+
+    let cmd_tx_duck = cmd_tx.clone();
+    let duck_vol_spin_ref = duck_vol_spin.clone();
+    duck_check.connect_toggled(move |btn| {
+        let active = btn.is_active();
+        duck_vol_spin_ref.set_sensitive(active);
+        save_and_notify(&cmd_tx_duck, |cfg| cfg.audio_ducking_enabled = active);
+    });
+
+    let cmd_tx_duck_vol = cmd_tx.clone();
+    duck_vol_spin.connect_value_changed(move |spin| {
+        let val = spin.value() as u32;
+        save_and_notify(&cmd_tx_duck_vol, |cfg| cfg.audio_duck_volume = val);
+    });
+
+    let duck_hint = gtk::Label::new(Some("Requires PulseAudio or PipeWire (pactl)"));
+    duck_hint.set_xalign(0.0);
+    duck_hint.style_context().add_class("dim-label");
+
+    duck_box.pack_start(&duck_check, false, false, 0);
+    duck_box.pack_start(&duck_vol_row, false, false, 0);
+    duck_box.pack_start(&duck_hint, false, false, 0);
+    vbox.pack_start(&duck_frame, false, false, 0);
+
     // --- Segmentation section ---
     let (seg_frame, seg_box) = create_section("Segmentation");
 

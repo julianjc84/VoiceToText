@@ -198,6 +198,10 @@ pub struct Config {
     pub always_listen_shortcut: String,
     #[serde(default = "default_max_transcripts")]
     pub max_transcripts: u32,
+    #[serde(default)]
+    pub audio_ducking_enabled: bool,
+    #[serde(default = "default_audio_duck_volume")]
+    pub audio_duck_volume: u32,
 }
 
 fn default_shortcut() -> String {
@@ -216,6 +220,10 @@ fn default_max_transcripts() -> u32 {
     0
 }
 
+fn default_audio_duck_volume() -> u32 {
+    10
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -228,6 +236,8 @@ impl Default for Config {
             transcript_shortcut: default_transcript_shortcut(),
             always_listen_shortcut: default_always_listen_shortcut(),
             max_transcripts: default_max_transcripts(),
+            audio_ducking_enabled: false,
+            audio_duck_volume: default_audio_duck_volume(),
         }
     }
 }

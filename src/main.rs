@@ -1,4 +1,5 @@
 mod audio;
+mod audio_duck;
 mod config;
 mod dbus_service;
 mod hotkey;
@@ -68,6 +69,7 @@ fn coordinator_loop(
     let mut active_backend = ActiveBackend::GlobalHotkey;
     let mut mic_muted = false;
     let mut last_mute_notify = Instant::now() - Duration::from_secs(10);
+    let mut saved_volume: Option<u32> = None;
 
     eprintln!("Coordinator ready");
 
@@ -84,13 +86,13 @@ fn coordinator_loop(
                                     last_mute_notify = Instant::now();
                                 }
                             } else {
-                                start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx);
+                                start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx, &app_config, &mut saved_volume);
                             }
                         } else {
                             stop_recording(
                                 &audio, &mut state, &mut session_text, &mut session_process_ms,
                                 &tray_tx, &text_rx, &vad_cmd_tx,
-                                display_server, &app_config, active_backend,
+                                display_server, &app_config, active_backend, &mut saved_volume,
                             );
                         }
                     }
@@ -104,14 +106,14 @@ fn coordinator_loop(
                                         last_mute_notify = Instant::now();
                                     }
                                 } else {
-                                    start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx);
+                                    start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx, &app_config, &mut saved_volume);
                                 }
                             }
                             RecordingState::AlwaysListen => {
                                 stop_recording(
                                     &audio, &mut state, &mut session_text, &mut session_process_ms,
                                     &tray_tx, &text_rx, &vad_cmd_tx,
-                                    display_server, &app_config, active_backend,
+                                    display_server, &app_config, active_backend, &mut saved_volume,
                                 );
                             }
                             RecordingState::PushToTalk => {
@@ -128,7 +130,7 @@ fn coordinator_loop(
                                 }
                             } else {
                                 eprintln!("Coord: StartRecording (PushToTalk)");
-                                start_recording(&audio, &mut state, RecordingState::PushToTalk, &mut session_text, &mut session_process_ms, &tray_tx);
+                                start_recording(&audio, &mut state, RecordingState::PushToTalk, &mut session_text, &mut session_process_ms, &tray_tx, &app_config, &mut saved_volume);
                             }
                         }
                         // Ignored if already recording (AlwaysListen or PushToTalk)
@@ -139,7 +141,7 @@ fn coordinator_loop(
                             stop_recording(
                                 &audio, &mut state, &mut session_text, &mut session_process_ms,
                                 &tray_tx, &text_rx, &vad_cmd_tx,
-                                display_server, &app_config, active_backend,
+                                display_server, &app_config, active_backend, &mut saved_volume,
                             );
                         }
                     }
@@ -186,7 +188,7 @@ fn coordinator_loop(
                             stop_recording(
                                 &audio, &mut state, &mut session_text, &mut session_process_ms,
                                 &tray_tx, &text_rx, &vad_cmd_tx,
-                                display_server, &app_config, active_backend,
+                                display_server, &app_config, active_backend, &mut saved_volume,
                             );
                         }
                         eprintln!("Quit command received");
@@ -238,12 +240,17 @@ fn start_recording(
     session_text: &mut Vec<String>,
     session_process_ms: &mut u64,
     tray_tx: &Sender<TrayUpdate>,
+    app_config: &Config,
+    saved_volume: &mut Option<u32>,
 ) {
     session_text.clear();
     *session_process_ms = 0;
     if let Err(e) = audio.start() {
         eprintln!("Failed to start recording: {}", e);
         return;
+    }
+    if app_config.audio_ducking_enabled {
+        *saved_volume = audio_duck::duck(app_config.audio_duck_volume);
     }
     *state = target_state;
     let _ = tray_tx.send(TrayUpdate::State(target_state));
@@ -266,10 +273,14 @@ fn stop_recording(
     display_server: DisplayServer,
     app_config: &Config,
     active_backend: ActiveBackend,
+    saved_volume: &mut Option<u32>,
 ) {
     let prev_state = *state;
     if let Err(e) = audio.stop() {
         eprintln!("Failed to stop recording: {}", e);
+    }
+    if let Some(vol) = saved_volume.take() {
+        audio_duck::restore(vol);
     }
     let _ = vad_cmd_tx.send(VadCommand::Flush);
     *state = RecordingState::Idle;
