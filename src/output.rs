@@ -92,3 +92,15 @@ pub fn copy_to_clipboard(text: &str) {
 
     eprintln!("WARNING: Could not copy to clipboard. Install wl-copy or xclip.");
 }
+
+/// Send a desktop notification via notify-send (non-blocking).
+pub fn send_notification(summary: &str, body: &str, icon: &str) {
+    let _ = Command::new("notify-send")
+        .args([
+            "--app-name=Voice to Text",
+            &format!("--icon={}", icon),
+            summary,
+            body,
+        ])
+        .spawn();
+}

@@ -990,6 +990,13 @@ fn build_transcript_row(
     let text_for_copy = entry.text.clone();
     copy_btn.connect_clicked(move |_| {
         output::copy_to_clipboard(&text_for_copy);
+        let preview: String = text_for_copy.chars().take(50).collect();
+        let body = if text_for_copy.chars().count() > 50 {
+            format!("{}...", preview)
+        } else {
+            preview
+        };
+        output::send_notification("Copied to clipboard", &body, "edit-copy");
     });
 
     let delete_btn = gtk::Button::with_label("Delete");

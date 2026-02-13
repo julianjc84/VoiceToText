@@ -324,6 +324,8 @@ pub enum AppCommand {
     OpenTranscripts,
     ReloadConfig,
     HotkeyBackendResolved(ActiveBackend),
+    MicMuteChanged(bool),
+    CopyTranscript(String),
     Quit,
 }
 

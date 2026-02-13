@@ -17,7 +17,9 @@ use crate::transcript;
 #[derive(Debug, Clone)]
 pub enum TrayUpdate {
     State(RecordingState),
+    MicMuted(bool),
     BackendInfo(ActiveBackend),
+    CopyToClipboard(String),
     OpenSettings,
     OpenTranscripts,
     RefreshTranscripts,
@@ -37,6 +39,8 @@ pub struct Tray {
     pub active_backend: Rc<RefCell<Option<ActiveBackend>>>,
     pub transcripts_submenu: Submenu,
     pub transcript_texts: Arc<Mutex<HashMap<MenuId, String>>>,
+    pub is_mic_muted: Rc<RefCell<bool>>,
+    pub current_state: Rc<RefCell<RecordingState>>,
 }
 
 static ICON_BASE_PNG: &[u8] = include_bytes!("../assets/mic-idle.png");
@@ -82,6 +86,58 @@ pub fn ptt_icon() -> Icon {
 /// Red mic — always listen active
 pub fn listen_icon() -> Icon {
     colorized_icon(0xDC, 0x32, 0x32)
+}
+
+/// Grey mic with red strike-through overlay — mic muted
+pub fn muted_icon() -> Icon {
+    let decoder = png::Decoder::new(ICON_BASE_PNG);
+    let mut reader = decoder.read_info().expect("Failed to read PNG header");
+    let mut buf = vec![0u8; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).expect("Failed to decode PNG");
+    let rgba = &mut buf[..info.buffer_size()];
+    let w = info.width as i32;
+
+    // Draw a red circle with white diagonal slash in the lower-right quadrant
+    let cx = 24i32;
+    let cy = 24i32;
+    let r_outer = 7i32;
+    let r_inner = 5i32;
+
+    for y in 0..info.height as i32 {
+        for x in 0..w {
+            let dx = x - cx;
+            let dy = y - cy;
+            let dist_sq = dx * dx + dy * dy;
+
+            if dist_sq <= r_outer * r_outer {
+                let idx = ((y * w + x) * 4) as usize;
+                if dist_sq > r_inner * r_inner {
+                    // Red circle ring
+                    rgba[idx] = 0xDC;
+                    rgba[idx + 1] = 0x32;
+                    rgba[idx + 2] = 0x32;
+                    rgba[idx + 3] = 255;
+                } else {
+                    // Inside circle: draw white diagonal slash (2px thick)
+                    let on_slash = (dx - dy).abs() <= 1;
+                    if on_slash {
+                        rgba[idx] = 255;
+                        rgba[idx + 1] = 255;
+                        rgba[idx + 2] = 255;
+                        rgba[idx + 3] = 255;
+                    } else {
+                        // Fill inside with semi-transparent red
+                        rgba[idx] = 0xDC;
+                        rgba[idx + 1] = 0x32;
+                        rgba[idx + 2] = 0x32;
+                        rgba[idx + 3] = 160;
+                    }
+                }
+            }
+        }
+    }
+
+    Icon::from_rgba(rgba.to_vec(), info.width, info.height).expect("Failed to create icon")
 }
 
 fn truncate_for_menu(text: &str, max_chars: usize) -> String {
@@ -176,8 +232,8 @@ pub fn create_tray(cmd_tx: Sender<AppCommand>) -> Tray {
                     let _ = cmd_tx_menu.send(AppCommand::OpenTranscripts);
                 } else if event.id == quit_id {
                     let _ = cmd_tx_menu.send(AppCommand::Quit);
-                } else if let Some(text) = transcript_texts_menu.lock().unwrap().get(&event.id) {
-                    output::copy_to_clipboard(text);
+                } else if let Some(text) = transcript_texts_menu.lock().unwrap().get(&event.id).cloned() {
+                    let _ = cmd_tx_menu.send(AppCommand::CopyTranscript(text));
                 }
             }
         }
@@ -209,6 +265,8 @@ pub fn create_tray(cmd_tx: Sender<AppCommand>) -> Tray {
         active_backend: Rc::new(RefCell::new(None)),
         transcripts_submenu,
         transcript_texts,
+        is_mic_muted: Rc::new(RefCell::new(false)),
+        current_state: Rc::new(RefCell::new(RecordingState::Idle)),
     }
 }
 
@@ -216,22 +274,52 @@ pub fn create_tray(cmd_tx: Sender<AppCommand>) -> Tray {
 pub fn apply_update(tray: &Tray, update: TrayUpdate) {
     match update {
         TrayUpdate::State(RecordingState::Idle) => {
-            let _ = tray.icon.set_icon(Some(idle_icon()));
-            let _ = tray.icon.set_tooltip(Some("Voice to Text — Idle"));
+            *tray.current_state.borrow_mut() = RecordingState::Idle;
+            if *tray.is_mic_muted.borrow() {
+                let _ = tray.icon.set_icon(Some(muted_icon()));
+                let _ = tray.icon.set_tooltip(Some("Voice to Text — Mic Muted"));
+            } else {
+                let _ = tray.icon.set_icon(Some(idle_icon()));
+                let _ = tray.icon.set_tooltip(Some("Voice to Text — Idle"));
+            }
             tray.toggle_item.set_text("Always Listen");
         }
         TrayUpdate::State(RecordingState::PushToTalk) => {
+            *tray.current_state.borrow_mut() = RecordingState::PushToTalk;
             let _ = tray.icon.set_icon(Some(ptt_icon()));
             let _ = tray.icon.set_tooltip(Some("Voice to Text — Push to Talk"));
             tray.toggle_item.set_text("Stop Listening");
         }
         TrayUpdate::State(RecordingState::AlwaysListen) => {
+            *tray.current_state.borrow_mut() = RecordingState::AlwaysListen;
             let _ = tray.icon.set_icon(Some(listen_icon()));
             let _ = tray.icon.set_tooltip(Some("Voice to Text — Always Listen"));
             tray.toggle_item.set_text("Stop Listening");
         }
+        TrayUpdate::MicMuted(muted) => {
+            *tray.is_mic_muted.borrow_mut() = muted;
+            if *tray.current_state.borrow() == RecordingState::Idle {
+                if muted {
+                    let _ = tray.icon.set_icon(Some(muted_icon()));
+                    let _ = tray.icon.set_tooltip(Some("Voice to Text — Mic Muted"));
+                } else {
+                    let _ = tray.icon.set_icon(Some(idle_icon()));
+                    let _ = tray.icon.set_tooltip(Some("Voice to Text — Idle"));
+                }
+            }
+        }
         TrayUpdate::BackendInfo(backend) => {
             *tray.active_backend.borrow_mut() = Some(backend);
+        }
+        TrayUpdate::CopyToClipboard(text) => {
+            output::copy_to_clipboard(&text);
+            let preview: String = text.chars().take(50).collect();
+            let body = if text.chars().count() > 50 {
+                format!("{}...", preview)
+            } else {
+                preview
+            };
+            output::send_notification("Copied to clipboard", &body, "edit-copy");
         }
         TrayUpdate::OpenSettings => {
             settings::open_settings_window(

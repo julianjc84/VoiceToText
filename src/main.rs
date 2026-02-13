@@ -2,6 +2,7 @@ mod audio;
 mod config;
 mod dbus_service;
 mod hotkey;
+mod mic_mute;
 mod output;
 mod settings;
 mod transcribe;
@@ -11,7 +12,7 @@ mod vad;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crossbeam_channel::{self, Receiver, Sender};
 
@@ -65,6 +66,8 @@ fn coordinator_loop(
     let mut session_process_ms: u64 = 0;
     let mut app_config = Config::load();
     let mut active_backend = ActiveBackend::GlobalHotkey;
+    let mut mic_muted = false;
+    let mut last_mute_notify = Instant::now() - Duration::from_secs(10);
 
     eprintln!("Coordinator ready");
 
@@ -75,7 +78,14 @@ fn coordinator_loop(
                     Ok(AppCommand::ToggleRecording) => {
                         eprintln!("Coord: ToggleRecording (state={:?})", state);
                         if state == RecordingState::Idle {
-                            start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx);
+                            if mic_muted {
+                                if last_mute_notify.elapsed() >= Duration::from_secs(3) {
+                                    mic_mute::send_notification("Microphone is muted", "Unmute your mic to start recording");
+                                    last_mute_notify = Instant::now();
+                                }
+                            } else {
+                                start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx);
+                            }
                         } else {
                             stop_recording(
                                 &audio, &mut state, &mut session_text, &mut session_process_ms,
@@ -88,7 +98,14 @@ fn coordinator_loop(
                         eprintln!("Coord: ToggleAlwaysListen (state={:?})", state);
                         match state {
                             RecordingState::Idle => {
-                                start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx);
+                                if mic_muted {
+                                    if last_mute_notify.elapsed() >= Duration::from_secs(3) {
+                                        mic_mute::send_notification("Microphone is muted", "Unmute your mic to start recording");
+                                        last_mute_notify = Instant::now();
+                                    }
+                                } else {
+                                    start_recording(&audio, &mut state, RecordingState::AlwaysListen, &mut session_text, &mut session_process_ms, &tray_tx);
+                                }
                             }
                             RecordingState::AlwaysListen => {
                                 stop_recording(
@@ -104,8 +121,15 @@ fn coordinator_loop(
                     }
                     Ok(AppCommand::StartRecording) => {
                         if state == RecordingState::Idle {
-                            eprintln!("Coord: StartRecording (PushToTalk)");
-                            start_recording(&audio, &mut state, RecordingState::PushToTalk, &mut session_text, &mut session_process_ms, &tray_tx);
+                            if mic_muted {
+                                if last_mute_notify.elapsed() >= Duration::from_secs(3) {
+                                    mic_mute::send_notification("Microphone is muted", "Unmute your mic to start recording");
+                                    last_mute_notify = Instant::now();
+                                }
+                            } else {
+                                eprintln!("Coord: StartRecording (PushToTalk)");
+                                start_recording(&audio, &mut state, RecordingState::PushToTalk, &mut session_text, &mut session_process_ms, &tray_tx);
+                            }
                         }
                         // Ignored if already recording (AlwaysListen or PushToTalk)
                     }
@@ -149,6 +173,13 @@ fn coordinator_loop(
                             ActiveBackend::Evdev => eprintln!("Hotkey backend: evdev"),
                             ActiveBackend::GlobalHotkey => eprintln!("Hotkey backend: global_hotkey (fallback)"),
                         }
+                    }
+                    Ok(AppCommand::CopyTranscript(text)) => {
+                        let _ = tray_tx.send(TrayUpdate::CopyToClipboard(text));
+                    }
+                    Ok(AppCommand::MicMuteChanged(muted)) => {
+                        mic_muted = muted;
+                        let _ = tray_tx.send(TrayUpdate::MicMuted(muted));
                     }
                     Ok(AppCommand::Quit) => {
                         if state.is_recording() {
@@ -439,6 +470,15 @@ fn main() {
             hotkey::hotkey_thread(cmd_tx_hotkey, hotkey_cmd_rx, typing_ended_hotkey);
         })
         .expect("Failed to spawn hotkey thread");
+
+    // Spawn mic mute detection thread
+    let cmd_tx_mute = cmd_tx.clone();
+    std::thread::Builder::new()
+        .name("mic-mute".into())
+        .spawn(move || {
+            mic_mute::mic_mute_thread(cmd_tx_mute);
+        })
+        .expect("Failed to spawn mic mute thread");
 
     // Spawn coordinator thread
     std::thread::Builder::new()
