@@ -1,0 +1,15 @@
+# Build dependencies
+build-essential
+cmake
+libgtk-3-dev
+libasound2-dev
+libxdo-dev
+
+# Runtime dependencies (X11)
+xdotool
+xclip
+
+# Runtime dependencies (Wayland)
+wtype
+ydotool
+wl-clipboard

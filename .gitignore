@@ -27,3 +27,8 @@ Thumbs.db
 
 # Reference repos for research
 reference-apps/
+
+# AppImage build artifacts
+appimage-tools/
+AppDir/
+*.AppImage

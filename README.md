@@ -27,17 +27,24 @@ System-wide voice-to-text dictation tool for Linux. Transcribes speech using [wh
 - CMake
 - GTK 3 development libraries
 - ALSA development libraries
+- libxdo development libraries
 
 On Ubuntu/Debian:
 
 ```sh
-sudo apt install build-essential cmake libgtk-3-dev libasound2-dev
+sudo apt install build-essential cmake libgtk-3-dev libasound2-dev libxdo-dev
 ```
 
 On Fedora:
 
 ```sh
-sudo dnf install gcc gcc-c++ cmake gtk3-devel alsa-lib-devel
+sudo dnf install gcc gcc-c++ cmake gtk3-devel alsa-lib-devel libxdo-devel
+```
+
+Or use the install script to install all dependencies (build + runtime) automatically:
+
+```sh
+./install_dependencies.sh
 ```
 
 ### Runtime dependencies

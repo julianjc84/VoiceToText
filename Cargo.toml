@@ -24,6 +24,19 @@ serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
 evdev = "0.12"
 
+[package.metadata.deb]
+maintainer = "Julian"
+section = "utils"
+priority = "optional"
+depends = "libasound2, libgtk-3-0, libxdo3"
+recommends = "xdotool, xclip"
+suggests = "wtype, ydotool, wl-clipboard"
+assets = [
+    ["target/release/voice-to-text", "usr/bin/", "755"],
+    ["voice-to-text.desktop", "usr/share/applications/", "644"],
+    ["assets/icon-256.png", "usr/share/icons/hicolor/256x256/apps/voice-to-text.png", "644"],
+]
+
 [profile.release]
 opt-level = 3
 lto = "thin"
