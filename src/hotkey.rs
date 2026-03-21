@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::os::unix::io::AsRawFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -177,34 +178,10 @@ fn try_open_evdev_devices() -> Option<Vec<evdev::Device>> {
         return None;
     }
 
-    // Verify we can actually read from at least one device
-    let mut accessible = Vec::new();
-    for mut dev in keyboards {
-        let dev_name = dev.name().unwrap_or("unknown").to_string();
-        // Try a non-blocking fetch to check permissions.
-        // We must drop the result before moving dev.
-        let result = dev.fetch_events();
-        let ok = match &result {
-            Ok(_) => true,
-            Err(e) if e.raw_os_error() == Some(11) => {
-                // EAGAIN — device is accessible, just no events pending
-                true
-            }
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::PermissionDenied {
-                    eprintln!(
-                        "evdev: permission denied for {} — add user to 'input' group",
-                        dev_name
-                    );
-                }
-                false
-            }
-        };
-        drop(result);
-        if ok {
-            accessible.push(dev);
-        }
-    }
+    // evdev::enumerate() already opened the device files — if that succeeded,
+    // we have read access. Skip the old fetch_events() permission check which
+    // could block indefinitely on devices with no pending events.
+    let accessible = keyboards;
 
     if accessible.is_empty() {
         eprintln!("evdev: no accessible keyboard devices (permission denied)");
@@ -248,6 +225,16 @@ fn evdev_loop(
     cmd_tx: Sender<AppCommand>,
     hotkey_rx: Receiver<HotkeyCommand>,
 ) {
+    // Set all devices to non-blocking so fetch_events() returns immediately
+    // when no events are pending (instead of blocking the polling loop).
+    for dev in &devices {
+        let fd = dev.as_raw_fd();
+        unsafe {
+            let flags = libc::fcntl(fd, libc::F_GETFL);
+            libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK);
+        }
+    }
+
     let cfg = Config::load();
     let mut mode = cfg.recording_mode;
 
