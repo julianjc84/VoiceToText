@@ -41,17 +41,27 @@ On Fedora:
 sudo dnf install gcc gcc-c++ cmake gtk3-devel alsa-lib-devel libxdo-devel
 ```
 
+On Arch Linux:
+
+```sh
+sudo pacman -S base-devel cmake gtk3 alsa-lib xdotool pipewire-alsa
+```
+
 Or use the install script to install all dependencies (build + runtime) automatically:
 
 ```sh
 ./install_dependencies.sh
 ```
 
+The script supports apt (Debian/Ubuntu), dnf (Fedora/RHEL), and pacman (Arch). On Arch, it also sets up the ydotool system service and uinput module.
+
 ### Runtime dependencies
 
 - **X11**: `xdotool` for typing text into windows
-- **Wayland**: `wtype` or `ydotool` for typing text into windows
-- Clipboard: `wl-copy` (Wayland) or `xclip` (X11) as fallback if arboard doesn't work
+- **Wayland (wlroots — Sway, Hyprland)**: `wtype` for typing text
+- **Wayland (KDE, GNOME)**: `ydotool` for typing text (requires ydotoold service)
+- **Clipboard**: `wl-copy` (Wayland) or `xclip` (X11)
+- **Audio (PipeWire systems)**: `pipewire-alsa` for ALSA-to-PipeWire routing
 
 ## Building
 
@@ -165,6 +175,50 @@ max_transcripts = 0
 | `~/.config/voice-to-text/config.toml` | Configuration |
 | `~/.local/share/voice-to-text/models/` | Whisper and VAD models |
 | `~/.local/share/voice-to-text/transcripts.json` | Transcript history |
+
+## Platform compatibility
+
+Linux desktop fragmentation means different display servers, compositors, and audio systems require different backends. The app handles this with automatic fallback chains:
+
+| Component | X11 | Wayland (wlroots) | Wayland (KDE/GNOME) |
+|---|---|---|---|
+| **Text typing** | xdotool | wtype | ydotool |
+| **Clipboard** | arboard / xclip | wl-copy | wl-copy |
+| **Hotkeys** | global_hotkey | evdev | evdev |
+| **Audio** | cpal (ALSA) | cpal + pipewire-alsa | cpal + pipewire-alsa |
+
+### Arch Linux notes
+
+Arch is minimal and requires manual setup for some components:
+
+- **Audio**: Install `pipewire-alsa` so cpal (ALSA-based) can route through PipeWire
+- **ydotool**: Needs a system-level systemd service since the packaged user service lacks `/dev/uinput` permissions. Create `/etc/systemd/system/ydotoold.service`:
+  ```ini
+  [Unit]
+  Description=ydotoold daemon
+
+  [Service]
+  ExecStartPre=/usr/sbin/modprobe uinput
+  ExecStart=/usr/bin/ydotoold --socket-path=/run/ydotoold/socket --socket-perm=0666
+  RuntimeDirectory=ydotoold
+  Restart=on-failure
+  RestartSec=3
+
+  [Install]
+  WantedBy=multi-user.target
+  ```
+  Then: `sudo systemctl enable --now ydotoold`
+- **User groups**: Add your user to the `input` group for evdev hotkey access: `sudo usermod -aG input $USER`
+
+### Distro package summary
+
+| Package | Arch | Ubuntu/Debian |
+|---|---|---|
+| pipewire-alsa | `pacman -S pipewire-alsa` | Included by default |
+| xdotool (X11) | `pacman -S xdotool` | `apt install xdotool` |
+| wtype (wlroots) | `pacman -S wtype` | `apt install wtype` |
+| ydotool (KDE/GNOME) | `pacman -S ydotool` | `apt install ydotool` |
+| wl-clipboard | `pacman -S wl-clipboard` | `apt install wl-clipboard` |
 
 ## Architecture
 
