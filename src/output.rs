@@ -34,7 +34,10 @@ fn type_text_x11(text: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn type_text_wayland(text: &str) -> Result<(), Box<dyn std::error::Error>> {
-    // Try wtype first (wlroots compositors), then ydotool (KDE/GNOME/etc)
+    // Try wtype first — works on wlroots/smithay compositors (Sway, Hyprland,
+    // niri) via the virtual-keyboard-v1 protocol. Fall back to ydotool on
+    // KWin/Mutter (KDE Plasma, GNOME), which don't expose that protocol and
+    // need the uinput-based injection path.
     let wtype_result = Command::new("wtype")
         .arg("--")
         .arg(text)

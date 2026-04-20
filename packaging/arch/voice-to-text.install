@@ -3,10 +3,15 @@ post_install() {
 
 ==> voice-to-text post-install reminders
 
-    Wayland typing (KDE/GNOME) requires the ydotoold system service.
-    Enable it now:
+    Wayland typing on KDE Plasma (KWin) or GNOME (Mutter) needs the
+    ydotoold system service — those compositors don't expose the
+    virtual-keyboard-v1 protocol that wtype uses. Enable it now:
 
         sudo systemctl enable --now ydotoold
+
+    If you're on a wlroots- or smithay-based compositor (Sway, Hyprland,
+    niri, river...), wtype handles typing directly and ydotoold is
+    unnecessary.
 
     evdev hotkey capture requires your user to be in the 'input' group.
     Add yourself:

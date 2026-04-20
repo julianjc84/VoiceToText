@@ -8,8 +8,8 @@ url="https://github.com/julianjc84/VoiceToText"
 license=('MIT')
 depends=('gtk3' 'alsa-lib' 'pipewire-alsa' 'hicolor-icon-theme')
 optdepends=(
-    'ydotool: Wayland keystroke injection (KDE/GNOME)'
-    'wtype: Wayland keystroke injection (wlroots: Sway, Hyprland)'
+    'ydotool: Wayland keystroke injection (KWin/Mutter: KDE Plasma, GNOME)'
+    'wtype: Wayland keystroke injection (wlroots/smithay: Sway, Hyprland, niri)'
     'xdotool: X11 keystroke injection'
     'wl-clipboard: Wayland clipboard integration'
     'xclip: X11 clipboard fallback'
@@ -57,7 +57,8 @@ package() {
     install -Dm644 assets/icon-256.png \
         "$pkgdir/usr/share/icons/hicolor/256x256/apps/voice-to-text.png"
 
-    # ydotoold systemd unit for Wayland keystroke injection (KDE/GNOME).
+    # ydotoold systemd unit for Wayland keystroke injection on compositors
+    # that don't expose virtual-keyboard-v1 (KWin/Mutter: KDE Plasma, GNOME).
     # This is the same unit install_dependencies.sh writes to
     # /etc/systemd/system/ — shipping it as a packaged unit means pacman
     # tracks it and the user can manage it alongside other services.

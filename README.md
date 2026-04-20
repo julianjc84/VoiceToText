@@ -58,10 +58,12 @@ The script supports apt (Debian/Ubuntu), dnf (Fedora/RHEL), and pacman (Arch). O
 ### Runtime dependencies
 
 - **X11**: `xdotool` for typing text into windows
-- **Wayland (wlroots — Sway, Hyprland)**: `wtype` for typing text
-- **Wayland (KDE, GNOME)**: `ydotool` for typing text (requires ydotoold service)
+- **Wayland (wlroots / smithay — Sway, Hyprland, niri)**: `wtype` for typing text
+- **Wayland (KWin / Mutter — KDE Plasma, GNOME)**: `ydotool` for typing text (requires ydotoold service)
 - **Clipboard**: `wl-copy` (Wayland) or `xclip` (X11)
 - **Audio (PipeWire systems)**: `pipewire-alsa` for ALSA-to-PipeWire routing
+
+The Wayland typing split comes down to the `virtual-keyboard-v1` protocol: wlroots- and smithay-based compositors implement it (so `wtype` works), while KWin and Mutter don't, which is why those fall back to `ydotool` → `/dev/uinput`.
 
 ## Building
 
@@ -180,12 +182,14 @@ max_transcripts = 0
 
 Linux desktop fragmentation means different display servers, compositors, and audio systems require different backends. The app handles this with automatic fallback chains:
 
-| Component | X11 | Wayland (wlroots) | Wayland (KDE/GNOME) |
+| Component | X11 | Wayland (wlroots / smithay) | Wayland (KWin / Mutter) |
 |---|---|---|---|
 | **Text typing** | xdotool | wtype | ydotool |
 | **Clipboard** | arboard / xclip | wl-copy | wl-copy |
 | **Hotkeys** | global_hotkey | evdev | evdev |
 | **Audio** | cpal (ALSA) | cpal + pipewire-alsa | cpal + pipewire-alsa |
+
+"wlroots / smithay" covers Sway, Hyprland, river, niri, and similar compositors that implement `virtual-keyboard-v1`. "KWin / Mutter" covers KDE Plasma and GNOME on Wayland, which don't expose that protocol to arbitrary clients and so need the uinput-based path.
 
 ### Arch Linux notes
 
@@ -216,8 +220,8 @@ Arch is minimal and requires manual setup for some components:
 |---|---|---|
 | pipewire-alsa | `pacman -S pipewire-alsa` | Included by default |
 | xdotool (X11) | `pacman -S xdotool` | `apt install xdotool` |
-| wtype (wlroots) | `pacman -S wtype` | `apt install wtype` |
-| ydotool (KDE/GNOME) | `pacman -S ydotool` | `apt install ydotool` |
+| wtype (wlroots / smithay) | `pacman -S wtype` | `apt install wtype` |
+| ydotool (KWin / Mutter) | `pacman -S ydotool` | `apt install ydotool` |
 | wl-clipboard | `pacman -S wl-clipboard` | `apt install wl-clipboard` |
 
 ## Architecture

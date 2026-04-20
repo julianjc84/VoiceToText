@@ -74,7 +74,10 @@ elif command -v pacman &>/dev/null; then
     echo "Installing: ${ARCH_PACKAGES[*]}"
     sudo pacman -S --needed "${ARCH_PACKAGES[@]}"
 
-    # Set up ydotool system service for Wayland (KDE/GNOME)
+    # Set up ydotool system service for Wayland compositors without
+    # virtual-keyboard-v1 support (KWin/Mutter: KDE Plasma, GNOME).
+    # Not needed on wlroots/smithay (Sway, Hyprland, niri) — wtype handles
+    # typing directly there — but installing the unit is harmless.
     if [[ ! -f /etc/systemd/system/ydotoold.service ]]; then
         echo "Setting up ydotoold system service..."
         sudo tee /etc/systemd/system/ydotoold.service > /dev/null <<'UNIT'
