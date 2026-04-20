@@ -95,9 +95,8 @@ pub fn vad_thread(
                     Ok(samples) => {
                         if use_vad {
                             // --- VAD mode ---
-                            let vad_ref = match vad.as_mut() {
-                                Some(v) => v,
-                                None => continue,
+                            let Some(vad_ref) = vad.as_mut() else {
+                                continue;
                             };
 
                             let i16_samples: Vec<i16> = samples.iter()

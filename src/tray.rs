@@ -35,7 +35,7 @@ pub struct Tray {
     pub cmd_tx: Sender<AppCommand>,
     pub settings_window: Rc<RefCell<Option<gtk::Window>>>,
     pub settings_stack: Rc<RefCell<Option<gtk::Stack>>>,
-    pub transcript_refresher: Rc<RefCell<Option<Box<dyn Fn()>>>>,
+    pub transcript_refresher: settings::RefresherRef,
     pub active_backend: Rc<RefCell<Option<ActiveBackend>>>,
     pub transcripts_submenu: Submenu,
     pub transcript_texts: Arc<Mutex<HashMap<MenuId, String>>>,
@@ -148,8 +148,7 @@ fn truncate_for_menu(text: &str, max_chars: usize) -> String {
         let end = trimmed
             .char_indices()
             .nth(max_chars)
-            .map(|(i, _)| i)
-            .unwrap_or(trimmed.len());
+            .map_or(trimmed.len(), |(i, _)| i);
         format!("{}...", &trimmed[..end])
     }
 }

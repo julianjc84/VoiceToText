@@ -68,7 +68,7 @@ fn coordinator_loop(
     let mut app_config = Config::load();
     let mut active_backend = ActiveBackend::GlobalHotkey;
     let mut mic_muted = false;
-    let mut last_mute_notify = Instant::now() - Duration::from_secs(10);
+    let mut last_mute_notify = Instant::now().checked_sub(Duration::from_secs(10)).unwrap();
     let mut saved_volume: Option<u32> = None;
 
     eprintln!("Coordinator ready");

@@ -33,15 +33,12 @@ pub fn send_notification(summary: &str, body: &str) {
 /// Exits gracefully if `pactl` is unavailable.
 pub fn mic_mute_thread(cmd_tx: Sender<AppCommand>) {
     // Check initial state — if pactl isn't available, disable this feature
-    let mut prev = match check_muted() {
-        Some(muted) => {
-            let _ = cmd_tx.send(AppCommand::MicMuteChanged(muted));
-            muted
-        }
-        None => {
-            eprintln!("Mic mute detection: pactl not available, feature disabled");
-            return;
-        }
+    let mut prev = if let Some(muted) = check_muted() {
+        let _ = cmd_tx.send(AppCommand::MicMuteChanged(muted));
+        muted
+    } else {
+        eprintln!("Mic mute detection: pactl not available, feature disabled");
+        return;
     };
 
     eprintln!("Mic mute detection: active (muted={})", prev);
@@ -58,8 +55,8 @@ pub fn mic_mute_thread(cmd_tx: Sender<AppCommand>) {
                 let _ = cmd_tx.send(AppCommand::MicMuteChanged(muted));
                 prev = muted;
             }
-            Some(_) => {} // No change
-            None => {}    // pactl failed this time, keep going
+            // No change, or pactl failed this tick — either way, keep going.
+            _ => {}
         }
     }
 }

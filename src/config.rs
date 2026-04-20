@@ -201,15 +201,11 @@ pub fn validate_shortcut(shortcut: &str) -> Result<(), &'static str> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RecordingMode {
     Toggle,
+    #[default]
     PushToTalk,
-}
-
-impl Default for RecordingMode {
-    fn default() -> Self {
-        RecordingMode::PushToTalk
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

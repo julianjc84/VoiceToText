@@ -237,37 +237,34 @@ fn evdev_loop(
     let cfg = Config::load();
     let mut mode = cfg.recording_mode;
 
-    let mut target_keys = match shortcut_to_evdev_keys(&cfg.shortcut) {
-        Some(k) => k,
-        None => {
-            eprintln!(
-                "evdev: failed to parse shortcut '{}', using ctrl+space",
-                cfg.shortcut
-            );
-            shortcut_to_evdev_keys("ctrl+space").unwrap()
-        }
+    let mut target_keys = if let Some(k) = shortcut_to_evdev_keys(&cfg.shortcut) {
+        k
+    } else {
+        eprintln!(
+            "evdev: failed to parse shortcut '{}', using ctrl+space",
+            cfg.shortcut
+        );
+        shortcut_to_evdev_keys("ctrl+space").unwrap()
     };
 
-    let mut transcript_keys = match shortcut_to_evdev_keys(&cfg.transcript_shortcut) {
-        Some(k) => k,
-        None => {
-            eprintln!(
-                "evdev: failed to parse transcript shortcut '{}', using ctrl+shift+t",
-                cfg.transcript_shortcut
-            );
-            shortcut_to_evdev_keys("ctrl+shift+t").unwrap()
-        }
+    let mut transcript_keys = if let Some(k) = shortcut_to_evdev_keys(&cfg.transcript_shortcut) {
+        k
+    } else {
+        eprintln!(
+            "evdev: failed to parse transcript shortcut '{}', using ctrl+shift+t",
+            cfg.transcript_shortcut
+        );
+        shortcut_to_evdev_keys("ctrl+shift+t").unwrap()
     };
 
-    let mut listen_keys = match shortcut_to_evdev_keys(&cfg.always_listen_shortcut) {
-        Some(k) => k,
-        None => {
-            eprintln!(
-                "evdev: failed to parse always-listen shortcut '{}', using ctrl+shift+l",
-                cfg.always_listen_shortcut
-            );
-            shortcut_to_evdev_keys("ctrl+shift+l").unwrap()
-        }
+    let mut listen_keys = if let Some(k) = shortcut_to_evdev_keys(&cfg.always_listen_shortcut) {
+        k
+    } else {
+        eprintln!(
+            "evdev: failed to parse always-listen shortcut '{}', using ctrl+shift+l",
+            cfg.always_listen_shortcut
+        );
+        shortcut_to_evdev_keys("ctrl+shift+l").unwrap()
     };
 
     let mut pressed_keys: HashSet<evdev::Key> = HashSet::new();
@@ -615,8 +612,7 @@ fn global_hotkey_loop(
                                         Duration::from_millis(TYPING_GRACE_MS - since_typing);
                                     eprintln!(
                                         "Hotkey: RELEASE (deferred {}ms, typing {}ms ago)",
-                                        remaining.as_millis()
-                                            + PTT_RELEASE_DEBOUNCE.as_millis() as u128,
+                                        remaining.as_millis() + PTT_RELEASE_DEBOUNCE.as_millis(),
                                         since_typing
                                     );
                                     Instant::now() + remaining + PTT_RELEASE_DEBOUNCE

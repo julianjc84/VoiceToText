@@ -3,6 +3,12 @@ use gtk::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// Shared handle to the transcripts page's refresh closure. Built once when the
+/// settings window opens and invoked from callers that need to re-render the
+/// transcripts list (e.g. after a copy/delete). Also used by `tray::Tray` to
+/// trigger a refresh when a transcript is added/removed via the tray menu.
+pub type RefresherRef = Rc<RefCell<Option<Box<dyn Fn()>>>>;
+
 use crate::config::{
     self, ActiveBackend, AppCommand, Config, RecordingMode, APP_VERSION, AVAILABLE_MODELS,
     CHUNK_DURATION_MAX, CHUNK_DURATION_MIN,
@@ -377,11 +383,11 @@ fn build_settings_page(
                 match name_str.as_str() {
                     "Control_L" | "Control_R" if !parts.contains(&"Ctrl") => parts.push("Ctrl"),
                     "Alt_L" | "Alt_R" | "ISO_Level3_Shift" if !parts.contains(&"Alt") => {
-                        parts.push("Alt")
+                        parts.push("Alt");
                     }
                     "Shift_L" | "Shift_R" if !parts.contains(&"Shift") => parts.push("Shift"),
                     "Super_L" | "Super_R" | "Meta_L" | "Meta_R" if !parts.contains(&"Super") => {
-                        parts.push("Super")
+                        parts.push("Super");
                     }
                     _ => {}
                 }
@@ -398,9 +404,8 @@ fn build_settings_page(
 
         // Non-modifier key pressed — resolve the physical key
         let display = window_ref.display();
-        let keymap = match gtk::gdk::Keymap::for_display(&display) {
-            Some(km) => km,
-            None => return gtk::glib::Propagation::Stop,
+        let Some(keymap) = gtk::gdk::Keymap::for_display(&display) else {
+            return gtk::glib::Propagation::Stop;
         };
 
         let hw_keycode = event.hardware_keycode();
@@ -412,23 +417,19 @@ fn build_settings_page(
             keyval.name().map(|n| n.to_string())
         };
 
-        let base_name = match base_name {
-            Some(n) => n,
-            None => return gtk::glib::Propagation::Stop,
+        let Some(base_name) = base_name else {
+            return gtk::glib::Propagation::Stop;
         };
 
-        let internal_key = match gdk_name_to_internal(&base_name) {
-            Some(k) => k,
-            None => {
-                let active = active_kp.borrow();
-                if let Some(ref rec) = *active {
-                    rec.warning_label.set_markup(
-                        "<span foreground=\"#cc0000\">Unrecognized key. Try another.</span>",
-                    );
-                    rec.warning_label.set_visible(true);
-                }
-                return gtk::glib::Propagation::Stop;
+        let Some(internal_key) = gdk_name_to_internal(&base_name) else {
+            let active = active_kp.borrow();
+            if let Some(ref rec) = *active {
+                rec.warning_label.set_markup(
+                    "<span foreground=\"#cc0000\">Unrecognized key. Try another.</span>",
+                );
+                rec.warning_label.set_visible(true);
             }
+            return gtk::glib::Propagation::Stop;
         };
 
         // Build modifier list in fixed order
@@ -451,19 +452,16 @@ fn build_settings_page(
         let shortcut = mods.join("+");
 
         // Validate
-        match config::validate_shortcut(&shortcut) {
-            Err(msg) => {
-                let active = active_kp.borrow();
-                if let Some(ref rec) = *active {
-                    rec.warning_label.set_markup(&format!(
-                        "<span foreground=\"#cc0000\">{}</span>",
-                        gtk::glib::markup_escape_text(msg)
-                    ));
-                    rec.warning_label.set_visible(true);
-                }
-                return gtk::glib::Propagation::Stop;
+        if let Err(msg) = config::validate_shortcut(&shortcut) {
+            let active = active_kp.borrow();
+            if let Some(ref rec) = *active {
+                rec.warning_label.set_markup(&format!(
+                    "<span foreground=\"#cc0000\">{}</span>",
+                    gtk::glib::markup_escape_text(msg)
+                ));
+                rec.warning_label.set_visible(true);
             }
-            Ok(()) => {}
+            return gtk::glib::Propagation::Stop;
         }
 
         // Valid — finalize: take the active recorder, update UI, save
@@ -472,7 +470,7 @@ fn build_settings_page(
             .button
             .set_label(&config::display_shortcut(&shortcut));
         recorder.button.style_context().remove_class("dim-label");
-        *recorder.saved_shortcut.borrow_mut() = shortcut.clone();
+        recorder.saved_shortcut.borrow_mut().clone_from(&shortcut);
 
         if config::is_dangerous_shortcut(&shortcut) {
             recorder.warning_label.set_markup(&format!(
@@ -886,7 +884,7 @@ fn build_settings_page(
                     Box::new(move || {
                         radio.set_sensitive(true);
                         radio.set_active(true);
-                        save_and_notify(&cmd_tx, |cfg| cfg.model = filename.clone());
+                        save_and_notify(&cmd_tx, |cfg| cfg.model.clone_from(&filename));
                     }),
                 );
             });
@@ -897,7 +895,7 @@ fn build_settings_page(
             let cmd_tx_radio = cmd_tx.clone();
             radio.connect_toggled(move |btn| {
                 if btn.is_active() && Config::load().model != filename {
-                    save_and_notify(&cmd_tx_radio, |cfg| cfg.model = filename.clone());
+                    save_and_notify(&cmd_tx_radio, |cfg| cfg.model.clone_from(&filename));
                 }
             });
         }
@@ -1186,7 +1184,7 @@ pub fn open_settings_window(
     cmd_tx: Sender<AppCommand>,
     existing: &Rc<RefCell<Option<gtk::Window>>>,
     stack_ref: &Rc<RefCell<Option<gtk::Stack>>>,
-    refresher_ref: &Rc<RefCell<Option<Box<dyn Fn()>>>>,
+    refresher_ref: &RefresherRef,
     active_backend: &Rc<RefCell<Option<ActiveBackend>>>,
 ) {
     // If window already open, just present it
@@ -1269,7 +1267,9 @@ fn download_model_with_progress(
     let mut file = std::fs::File::create(&tmp_path)?;
 
     let mut downloaded: u64 = 0;
-    let mut buf = [0u8; 65536];
+    // 64 KiB on the heap — large enough to avoid stack overflow warnings,
+    // small enough to fit any typical download chunk in one read.
+    let mut buf = vec![0u8; 65536].into_boxed_slice();
     let mut last_pct = 0u8;
 
     loop {
