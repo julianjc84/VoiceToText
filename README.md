@@ -75,16 +75,55 @@ The binary is at `target/release/voice-to-text`.
 
 ## Installation
 
+### Arch Linux (PKGBUILD)
+
+Build and install a tracked pacman package from the local checkout:
+
 ```sh
-# Copy binary
+cd packaging/arch
+makepkg -si
+```
+
+This produces `voice-to-text-<version>-x86_64.pkg.tar.zst` and installs:
+
+| File | Purpose |
+|---|---|
+| `/usr/bin/voice-to-text` | the binary |
+| `/usr/share/applications/voice-to-text.desktop` | desktop entry |
+| `/usr/share/icons/hicolor/256x256/apps/voice-to-text.png` | tray / launcher icon |
+| `/usr/lib/systemd/system/ydotoold.service` | systemd unit (not auto-enabled — see post-install) |
+| `/usr/share/licenses/voice-to-text/LICENSE` | license |
+
+Not on the AUR yet — the PKGBUILD builds from this repo rather than fetching a source tarball. Re-run `makepkg -si` after `git pull` to upgrade.
+
+### Manual install (any distro)
+
+After `cargo build --release`:
+
+```sh
+# Binary
 sudo cp target/release/voice-to-text /usr/local/bin/
 
-# Copy desktop entry (optional, for app launchers)
+# Desktop entry (optional, for app launchers)
 sudo cp voice-to-text.desktop /usr/share/applications/
 
-# Copy icon (optional)
+# Icon (optional)
 sudo cp assets/icon-256.png /usr/share/icons/hicolor/256x256/apps/voice-to-text.png
 ```
+
+### Post-install setup
+
+- **Wayland on KDE Plasma (KWin) or GNOME (Mutter)** — enable the ydotoold system service so `ydotool` can inject keystrokes through `/dev/uinput`:
+  ```sh
+  sudo systemctl enable --now ydotoold
+  ```
+  Not needed on wlroots- or smithay-based compositors (Sway, Hyprland, niri, river...) — `wtype` handles typing directly via `virtual-keyboard-v1`.
+- **All Linux** — add yourself to the `input` group so evdev hotkey capture works:
+  ```sh
+  sudo usermod -aG input $USER
+  ```
+  Log out and back in for the group change to take effect.
+- **First launch** — open Settings from the tray icon and download a whisper model (Base ~82 MB / Small ~180 MB / Medium ~460 MB).
 
 ## Usage
 
@@ -193,26 +232,14 @@ Linux desktop fragmentation means different display servers, compositors, and au
 
 ### Arch Linux notes
 
-Arch is minimal and requires manual setup for some components:
+The PKGBUILD under [Installation → Arch Linux](#arch-linux-pkgbuild) already handles everything Arch-specific:
 
-- **Audio**: Install `pipewire-alsa` so cpal (ALSA-based) can route through PipeWire
-- **ydotool**: Needs a system-level systemd service since the packaged user service lacks `/dev/uinput` permissions. Create `/etc/systemd/system/ydotoold.service`:
-  ```ini
-  [Unit]
-  Description=ydotoold daemon
+- pulls `pipewire-alsa` as a hard dependency so `cpal`'s ALSA path routes through PipeWire
+- ships `ydotoold.service` at `/usr/lib/systemd/system/` (tracked by pacman — no hand-rolled `/etc/systemd/system/` drop-in)
+- flags `ydotool`, `wtype`, `xdotool`, `wl-clipboard`, `xclip` as optional dependencies so pacman can suggest the right backend for your compositor
+- prints a post-install reminder for enabling `ydotoold` (KWin/Mutter only) and joining the `input` group
 
-  [Service]
-  ExecStartPre=/usr/sbin/modprobe uinput
-  ExecStart=/usr/bin/ydotoold --socket-path=/run/ydotoold/socket --socket-perm=0666
-  RuntimeDirectory=ydotoold
-  Restart=on-failure
-  RestartSec=3
-
-  [Install]
-  WantedBy=multi-user.target
-  ```
-  Then: `sudo systemctl enable --now ydotoold`
-- **User groups**: Add your user to the `input` group for evdev hotkey access: `sudo usermod -aG input $USER`
+If you'd rather not use the PKGBUILD, `./install_dependencies.sh` does the same system setup (pacman install + service unit + `input` group) without packaging.
 
 ### Distro package summary
 
