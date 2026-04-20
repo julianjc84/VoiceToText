@@ -1,0 +1,70 @@
+# Maintainer: Julian <julian@jc84.com>
+pkgname=voice-to-text
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="System-wide voice-to-text dictation tool for Linux (whisper.cpp + GTK tray)"
+arch=('x86_64')
+url="https://github.com/julianjc84/VoiceToText"
+license=('MIT')
+depends=('gtk3' 'alsa-lib' 'pipewire-alsa' 'hicolor-icon-theme')
+optdepends=(
+    'ydotool: Wayland keystroke injection (KDE/GNOME)'
+    'wtype: Wayland keystroke injection (wlroots: Sway, Hyprland)'
+    'xdotool: X11 keystroke injection'
+    'wl-clipboard: Wayland clipboard integration'
+    'xclip: X11 clipboard fallback'
+)
+makedepends=('rust' 'cargo' 'cmake' 'gcc' 'pkgconf')
+install="$pkgname.install"
+# Cargo.toml already sets lto="thin" and opt-level=3; don't let makepkg
+# layer its own LTO on top or we double-optimize (slower build, no benefit).
+options=('!lto')
+
+# This PKGBUILD builds from the surrounding git checkout. Run `makepkg -si`
+# from this directory (packaging/arch/). No source tarball is fetched.
+source=()
+sha256sums=()
+
+_projectdir() {
+    # Resolve the project root relative to this PKGBUILD's location.
+    printf '%s\n' "$(cd "$startdir/../.." && pwd)"
+}
+
+build() {
+    local root
+    root="$(_projectdir)"
+    cd "$root"
+
+    # .cargo/config.toml sets WHISPER_DONT_GENERATE_BINDINGS=1 so the
+    # whisper-rs-sys build uses its bundled bindings.rs instead of running
+    # bindgen on C++17 headers (which fails with modern clang).
+    echo "==> Building voice-to-text (release, --locked)"
+    cargo build --release --locked
+}
+
+package() {
+    local root
+    root="$(_projectdir)"
+    cd "$root"
+
+    # Binary
+    install -Dm755 target/release/voice-to-text \
+        "$pkgdir/usr/bin/voice-to-text"
+
+    # Desktop entry + icon
+    install -Dm644 voice-to-text.desktop \
+        "$pkgdir/usr/share/applications/voice-to-text.desktop"
+    install -Dm644 assets/icon-256.png \
+        "$pkgdir/usr/share/icons/hicolor/256x256/apps/voice-to-text.png"
+
+    # ydotoold systemd unit for Wayland keystroke injection (KDE/GNOME).
+    # This is the same unit install_dependencies.sh writes to
+    # /etc/systemd/system/ — shipping it as a packaged unit means pacman
+    # tracks it and the user can manage it alongside other services.
+    install -Dm644 packaging/arch/ydotoold.service \
+        "$pkgdir/usr/lib/systemd/system/ydotoold.service"
+
+    # License
+    install -Dm644 LICENSE \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

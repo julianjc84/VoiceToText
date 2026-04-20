@@ -1,0 +1,26 @@
+post_install() {
+    cat <<'EOF'
+
+==> voice-to-text post-install reminders
+
+    Wayland typing (KDE/GNOME) requires the ydotoold system service.
+    Enable it now:
+
+        sudo systemctl enable --now ydotoold
+
+    evdev hotkey capture requires your user to be in the 'input' group.
+    Add yourself:
+
+        sudo usermod -aG input $USER
+
+    Log out and back in for the group change to take effect.
+
+    On first launch, open Settings from the tray icon to download a
+    whisper model (Base ~82 MB / Small ~180 MB / Medium ~460 MB).
+
+EOF
+}
+
+post_upgrade() {
+    post_install
+}
