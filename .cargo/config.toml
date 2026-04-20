@@ -1,0 +1,11 @@
+# Use the bundled pre-generated FFI bindings shipped inside the
+# whisper-rs-sys crate instead of regenerating them with bindgen at
+# build time. Live bindgen against whisper.cpp's C++17 headers fails on
+# modern clang/libclang versions and produces an opaque struct for
+# `whisper_full_params`, which then breaks the high-level whisper-rs
+# crate (E0609: "no field X on type whisper_full_params").
+#
+# See whisper-rs-sys/build.rs — when this variable is set, it copies
+# src/bindings.rs verbatim into OUT_DIR.
+[env]
+WHISPER_DONT_GENERATE_BINDINGS = "1"
