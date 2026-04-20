@@ -188,10 +188,7 @@ fn try_open_evdev_devices() -> Option<Vec<evdev::Device>> {
         eprintln!("evdev: run 'sudo usermod -aG input $USER' and log out/in");
         None
     } else {
-        eprintln!(
-            "evdev: opened {} keyboard device(s)",
-            accessible.len()
-        );
+        eprintln!("evdev: opened {} keyboard device(s)", accessible.len());
         Some(accessible)
     }
 }
@@ -210,7 +207,9 @@ pub fn hotkey_thread(
         let _ = cmd_tx.send(AppCommand::HotkeyBackendResolved(ActiveBackend::Evdev));
         evdev_loop(devices, cmd_tx, hotkey_rx);
     } else {
-        let _ = cmd_tx.send(AppCommand::HotkeyBackendResolved(ActiveBackend::GlobalHotkey));
+        let _ = cmd_tx.send(AppCommand::HotkeyBackendResolved(
+            ActiveBackend::GlobalHotkey,
+        ));
         global_hotkey_loop(cmd_tx, hotkey_rx, typing_ended_at);
     }
 }
@@ -241,7 +240,10 @@ fn evdev_loop(
     let mut target_keys = match shortcut_to_evdev_keys(&cfg.shortcut) {
         Some(k) => k,
         None => {
-            eprintln!("evdev: failed to parse shortcut '{}', using ctrl+space", cfg.shortcut);
+            eprintln!(
+                "evdev: failed to parse shortcut '{}', using ctrl+space",
+                cfg.shortcut
+            );
             shortcut_to_evdev_keys("ctrl+space").unwrap()
         }
     };
@@ -249,7 +251,10 @@ fn evdev_loop(
     let mut transcript_keys = match shortcut_to_evdev_keys(&cfg.transcript_shortcut) {
         Some(k) => k,
         None => {
-            eprintln!("evdev: failed to parse transcript shortcut '{}', using ctrl+shift+t", cfg.transcript_shortcut);
+            eprintln!(
+                "evdev: failed to parse transcript shortcut '{}', using ctrl+shift+t",
+                cfg.transcript_shortcut
+            );
             shortcut_to_evdev_keys("ctrl+shift+t").unwrap()
         }
     };
@@ -257,7 +262,10 @@ fn evdev_loop(
     let mut listen_keys = match shortcut_to_evdev_keys(&cfg.always_listen_shortcut) {
         Some(k) => k,
         None => {
-            eprintln!("evdev: failed to parse always-listen shortcut '{}', using ctrl+shift+l", cfg.always_listen_shortcut);
+            eprintln!(
+                "evdev: failed to parse always-listen shortcut '{}', using ctrl+shift+l",
+                cfg.always_listen_shortcut
+            );
             shortcut_to_evdev_keys("ctrl+shift+l").unwrap()
         }
     };
@@ -270,7 +278,10 @@ fn evdev_loop(
     // Simple debounce for PTT release (same concept as global_hotkey version)
     let mut pending_release: Option<Instant> = None;
 
-    eprintln!("evdev: hotkey thread ready (shortcut: {}, mode: {:?})", cfg.shortcut, mode);
+    eprintln!(
+        "evdev: hotkey thread ready (shortcut: {}, mode: {:?})",
+        cfg.shortcut, mode
+    );
 
     loop {
         // Check for config reload commands (non-blocking)
@@ -296,20 +307,32 @@ fn evdev_loop(
                 match shortcut_to_evdev_keys(&new_cfg.transcript_shortcut) {
                     Some(k) => {
                         transcript_keys = k;
-                        eprintln!("evdev: updated transcript shortcut {}", new_cfg.transcript_shortcut);
+                        eprintln!(
+                            "evdev: updated transcript shortcut {}",
+                            new_cfg.transcript_shortcut
+                        );
                     }
                     None => {
-                        eprintln!("evdev: failed to parse transcript shortcut '{}'", new_cfg.transcript_shortcut);
+                        eprintln!(
+                            "evdev: failed to parse transcript shortcut '{}'",
+                            new_cfg.transcript_shortcut
+                        );
                     }
                 }
 
                 match shortcut_to_evdev_keys(&new_cfg.always_listen_shortcut) {
                     Some(k) => {
                         listen_keys = k;
-                        eprintln!("evdev: updated always-listen shortcut {}", new_cfg.always_listen_shortcut);
+                        eprintln!(
+                            "evdev: updated always-listen shortcut {}",
+                            new_cfg.always_listen_shortcut
+                        );
                     }
                     None => {
-                        eprintln!("evdev: failed to parse always-listen shortcut '{}'", new_cfg.always_listen_shortcut);
+                        eprintln!(
+                            "evdev: failed to parse always-listen shortcut '{}'",
+                            new_cfg.always_listen_shortcut
+                        );
                     }
                 }
             }
@@ -379,7 +402,10 @@ fn evdev_loop(
                     let _ = cmd_tx.send(AppCommand::StartRecording);
                 } else if !matched && was_matched {
                     // Keys just released — start debounce
-                    eprintln!("evdev: RELEASE (debounce {}ms)", PTT_RELEASE_DEBOUNCE.as_millis());
+                    eprintln!(
+                        "evdev: RELEASE (debounce {}ms)",
+                        PTT_RELEASE_DEBOUNCE.as_millis()
+                    );
                     pending_release = Some(Instant::now() + PTT_RELEASE_DEBOUNCE);
                 }
             }
@@ -450,27 +476,35 @@ fn global_hotkey_loop(
         }
     }
 
-    let mut current_transcript_hotkey: Option<HotKey> = match parse_and_register(&manager, &cfg.transcript_shortcut) {
-        Ok(hk) => {
-            eprintln!("Hotkey: registered {} (open transcripts)", cfg.transcript_shortcut);
-            Some(hk)
-        }
-        Err(e) => {
-            eprintln!("Hotkey: {}", e);
-            None
-        }
-    };
+    let mut current_transcript_hotkey: Option<HotKey> =
+        match parse_and_register(&manager, &cfg.transcript_shortcut) {
+            Ok(hk) => {
+                eprintln!(
+                    "Hotkey: registered {} (open transcripts)",
+                    cfg.transcript_shortcut
+                );
+                Some(hk)
+            }
+            Err(e) => {
+                eprintln!("Hotkey: {}", e);
+                None
+            }
+        };
 
-    let mut current_listen_hotkey: Option<HotKey> = match parse_and_register(&manager, &cfg.always_listen_shortcut) {
-        Ok(hk) => {
-            eprintln!("Hotkey: registered {} (always listen)", cfg.always_listen_shortcut);
-            Some(hk)
-        }
-        Err(e) => {
-            eprintln!("Hotkey: {}", e);
-            None
-        }
-    };
+    let mut current_listen_hotkey: Option<HotKey> =
+        match parse_and_register(&manager, &cfg.always_listen_shortcut) {
+            Ok(hk) => {
+                eprintln!(
+                    "Hotkey: registered {} (always listen)",
+                    cfg.always_listen_shortcut
+                );
+                Some(hk)
+            }
+            Err(e) => {
+                eprintln!("Hotkey: {}", e);
+                None
+            }
+        };
 
     let event_rx = GlobalHotKeyEvent::receiver();
 
@@ -511,7 +545,10 @@ fn global_hotkey_loop(
                 }
                 match parse_and_register(&manager, &new_cfg.transcript_shortcut) {
                     Ok(hk) => {
-                        eprintln!("Hotkey: updated transcript shortcut {}", new_cfg.transcript_shortcut);
+                        eprintln!(
+                            "Hotkey: updated transcript shortcut {}",
+                            new_cfg.transcript_shortcut
+                        );
                         current_transcript_hotkey = Some(hk);
                     }
                     Err(e) => {
@@ -525,7 +562,10 @@ fn global_hotkey_loop(
                 }
                 match parse_and_register(&manager, &new_cfg.always_listen_shortcut) {
                     Ok(hk) => {
-                        eprintln!("Hotkey: updated always-listen shortcut {}", new_cfg.always_listen_shortcut);
+                        eprintln!(
+                            "Hotkey: updated always-listen shortcut {}",
+                            new_cfg.always_listen_shortcut
+                        );
                         current_listen_hotkey = Some(hk);
                     }
                     Err(e) => {
@@ -568,18 +608,24 @@ fn global_hotkey_loop(
                                 let _ = cmd_tx.send(AppCommand::StartRecording);
                             }
                             HotKeyState::Released => {
-                                let since_typing = epoch_ms().saturating_sub(
-                                    typing_ended_at.load(Ordering::SeqCst),
-                                );
+                                let since_typing = epoch_ms()
+                                    .saturating_sub(typing_ended_at.load(Ordering::SeqCst));
                                 let deadline = if since_typing < TYPING_GRACE_MS {
-                                    let remaining = Duration::from_millis(TYPING_GRACE_MS - since_typing);
-                                    eprintln!("Hotkey: RELEASE (deferred {}ms, typing {}ms ago)",
-                                        remaining.as_millis() + PTT_RELEASE_DEBOUNCE.as_millis() as u128,
-                                        since_typing);
+                                    let remaining =
+                                        Duration::from_millis(TYPING_GRACE_MS - since_typing);
+                                    eprintln!(
+                                        "Hotkey: RELEASE (deferred {}ms, typing {}ms ago)",
+                                        remaining.as_millis()
+                                            + PTT_RELEASE_DEBOUNCE.as_millis() as u128,
+                                        since_typing
+                                    );
                                     Instant::now() + remaining + PTT_RELEASE_DEBOUNCE
                                 } else {
-                                    eprintln!("Hotkey: RELEASE (debounce {}ms, typing {}ms ago)",
-                                        PTT_RELEASE_DEBOUNCE.as_millis(), since_typing);
+                                    eprintln!(
+                                        "Hotkey: RELEASE (debounce {}ms, typing {}ms ago)",
+                                        PTT_RELEASE_DEBOUNCE.as_millis(),
+                                        since_typing
+                                    );
                                     Instant::now() + PTT_RELEASE_DEBOUNCE
                                 };
                                 pending_release = Some(deadline);

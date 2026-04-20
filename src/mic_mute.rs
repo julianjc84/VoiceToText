@@ -51,7 +51,10 @@ pub fn mic_mute_thread(cmd_tx: Sender<AppCommand>) {
 
         match check_muted() {
             Some(muted) if muted != prev => {
-                eprintln!("Mic mute changed: {}", if muted { "muted" } else { "unmuted" });
+                eprintln!(
+                    "Mic mute changed: {}",
+                    if muted { "muted" } else { "unmuted" }
+                );
                 let _ = cmd_tx.send(AppCommand::MicMuteChanged(muted));
                 prev = muted;
             }

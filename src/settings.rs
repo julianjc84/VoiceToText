@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::config::{
-    self, ActiveBackend, AppCommand, Config, RecordingMode, AVAILABLE_MODELS, APP_VERSION,
+    self, ActiveBackend, AppCommand, Config, RecordingMode, APP_VERSION, AVAILABLE_MODELS,
     CHUNK_DURATION_MAX, CHUNK_DURATION_MIN,
 };
 use crate::output;
@@ -119,14 +119,10 @@ fn create_path_row(path: &std::path::Path) -> gtk::Box {
     let dir = if path.is_dir() {
         path.to_path_buf()
     } else {
-        path.parent()
-            .unwrap_or(path)
-            .to_path_buf()
+        path.parent().unwrap_or(path).to_path_buf()
     };
     open_btn.connect_clicked(move |_| {
-        let _ = std::process::Command::new("xdg-open")
-            .arg(&dir)
-            .spawn();
+        let _ = std::process::Command::new("xdg-open").arg(&dir).spawn();
     });
 
     row.pack_start(&label, true, true, 0);
@@ -365,25 +361,36 @@ fn build_settings_page(
         if is_modifier_keyval(keyval) {
             let state = event.state();
             let mut parts = Vec::new();
-            if state.contains(ModifierType::CONTROL_MASK) { parts.push("Ctrl"); }
-            if state.contains(ModifierType::MOD1_MASK) { parts.push("Alt"); }
-            if state.contains(ModifierType::SHIFT_MASK) { parts.push("Shift"); }
+            if state.contains(ModifierType::CONTROL_MASK) {
+                parts.push("Ctrl");
+            }
+            if state.contains(ModifierType::MOD1_MASK) {
+                parts.push("Alt");
+            }
+            if state.contains(ModifierType::SHIFT_MASK) {
+                parts.push("Shift");
+            }
             if state.contains(ModifierType::SUPER_MASK) || state.contains(ModifierType::MOD4_MASK) {
                 parts.push("Super");
             }
             if let Some(name_str) = keyval.name() {
                 match name_str.as_str() {
                     "Control_L" | "Control_R" if !parts.contains(&"Ctrl") => parts.push("Ctrl"),
-                    "Alt_L" | "Alt_R" | "ISO_Level3_Shift" if !parts.contains(&"Alt") => parts.push("Alt"),
+                    "Alt_L" | "Alt_R" | "ISO_Level3_Shift" if !parts.contains(&"Alt") => {
+                        parts.push("Alt")
+                    }
                     "Shift_L" | "Shift_R" if !parts.contains(&"Shift") => parts.push("Shift"),
-                    "Super_L" | "Super_R" | "Meta_L" | "Meta_R" if !parts.contains(&"Super") => parts.push("Super"),
+                    "Super_L" | "Super_R" | "Meta_L" | "Meta_R" if !parts.contains(&"Super") => {
+                        parts.push("Super")
+                    }
                     _ => {}
                 }
             }
             if !parts.is_empty() {
                 let active = active_kp.borrow();
                 if let Some(ref rec) = *active {
-                    rec.button.set_label(&format!("{} + ...", parts.join(" + ")));
+                    rec.button
+                        .set_label(&format!("{} + ...", parts.join(" + ")));
                 }
             }
             return gtk::glib::Propagation::Stop;
@@ -427,9 +434,15 @@ fn build_settings_page(
         // Build modifier list in fixed order
         let state = event.state();
         let mut mods = Vec::new();
-        if state.contains(ModifierType::CONTROL_MASK) { mods.push("ctrl"); }
-        if state.contains(ModifierType::MOD1_MASK) { mods.push("alt"); }
-        if state.contains(ModifierType::SHIFT_MASK) { mods.push("shift"); }
+        if state.contains(ModifierType::CONTROL_MASK) {
+            mods.push("ctrl");
+        }
+        if state.contains(ModifierType::MOD1_MASK) {
+            mods.push("alt");
+        }
+        if state.contains(ModifierType::SHIFT_MASK) {
+            mods.push("shift");
+        }
         if state.contains(ModifierType::SUPER_MASK) || state.contains(ModifierType::MOD4_MASK) {
             mods.push("super");
         }
@@ -455,7 +468,9 @@ fn build_settings_page(
 
         // Valid — finalize: take the active recorder, update UI, save
         let recorder = active_kp.borrow_mut().take().unwrap();
-        recorder.button.set_label(&config::display_shortcut(&shortcut));
+        recorder
+            .button
+            .set_label(&config::display_shortcut(&shortcut));
         recorder.button.style_context().remove_class("dim-label");
         *recorder.saved_shortcut.borrow_mut() = shortcut.clone();
 
@@ -544,7 +559,9 @@ fn build_settings_page(
     backend_hint.style_context().add_class("dim-label");
 
     let setup_btn = gtk::Button::with_label("Setup evdev");
-    setup_btn.set_tooltip_text(Some("Add user to 'input' group for kernel-level key detection"));
+    setup_btn.set_tooltip_text(Some(
+        "Add user to 'input' group for kernel-level key detection",
+    ));
     setup_btn.set_no_show_all(true);
 
     let setup_result_label = gtk::Label::new(None);
@@ -685,11 +702,8 @@ fn build_settings_page(
     let duration_label = gtk::Label::new(Some("Chunk duration:"));
     duration_label.set_xalign(0.0);
 
-    let duration_spin = gtk::SpinButton::with_range(
-        CHUNK_DURATION_MIN as f64,
-        CHUNK_DURATION_MAX as f64,
-        0.5,
-    );
+    let duration_spin =
+        gtk::SpinButton::with_range(CHUNK_DURATION_MIN as f64, CHUNK_DURATION_MAX as f64, 0.5);
     duration_spin.set_value(config.chunk_duration_secs as f64);
     duration_spin.set_digits(1);
 
@@ -909,7 +923,11 @@ fn build_settings_page(
 
     let max_spin = gtk::SpinButton::with_range(1.0, 99999.0, 10.0);
     max_spin.set_digits(0);
-    max_spin.set_value(if config.max_transcripts > 0 { config.max_transcripts as f64 } else { 100.0 });
+    max_spin.set_value(if config.max_transcripts > 0 {
+        config.max_transcripts as f64
+    } else {
+        100.0
+    });
     max_spin.set_sensitive(config.max_transcripts > 0);
 
     let cmd_tx_keep_all = cmd_tx.clone();
@@ -1243,9 +1261,7 @@ fn download_model_with_progress(
 
     let resp = ureq::get(url).call().map_err(|e| format!("{}", e))?;
 
-    let total_size: Option<u64> = resp
-        .header("Content-Length")
-        .and_then(|v| v.parse().ok());
+    let total_size: Option<u64> = resp.header("Content-Length").and_then(|v| v.parse().ok());
 
     let mut reader = resp.into_reader();
 

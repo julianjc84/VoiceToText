@@ -285,8 +285,8 @@ fn stop_recording(
     let _ = vad_cmd_tx.send(VadCommand::Flush);
     *state = RecordingState::Idle;
 
-    let was_buffered = prev_state == RecordingState::PushToTalk
-        && active_backend == ActiveBackend::GlobalHotkey;
+    let was_buffered =
+        prev_state == RecordingState::PushToTalk && active_backend == ActiveBackend::GlobalHotkey;
 
     let was_always_listen = prev_state == RecordingState::AlwaysListen;
 
@@ -298,7 +298,10 @@ fn stop_recording(
                 break;
             }
             Ok(result) => {
-                eprintln!("Final drain ({}ms): {}", result.process_time_ms, result.text);
+                eprintln!(
+                    "Final drain ({}ms): {}",
+                    result.process_time_ms, result.text
+                );
                 session_text.push(result.text.clone());
                 *session_process_ms += result.process_time_ms;
                 // Type drain segments immediately if we were typing live
@@ -307,7 +310,11 @@ fn stop_recording(
                 }
                 // Save drain segments individually for AlwaysListen
                 if was_always_listen {
-                    transcript::save_transcript(&result.text, app_config.max_transcripts, result.process_time_ms);
+                    transcript::save_transcript(
+                        &result.text,
+                        app_config.max_transcripts,
+                        result.process_time_ms,
+                    );
                     let _ = tray_tx.send(TrayUpdate::RefreshTranscripts);
                 }
             }
@@ -495,7 +502,17 @@ fn main() {
     std::thread::Builder::new()
         .name("coordinator".into())
         .spawn(move || {
-            coordinator_loop(cmd_rx, text_rx, raw_tx, tray_tx, ctrl_tx, vad_cmd_tx, hotkey_cmd_tx, display_server, typing_ended_at);
+            coordinator_loop(
+                cmd_rx,
+                text_rx,
+                raw_tx,
+                tray_tx,
+                ctrl_tx,
+                vad_cmd_tx,
+                hotkey_cmd_tx,
+                display_server,
+                typing_ended_at,
+            );
         })
         .expect("Failed to spawn coordinator thread");
 

@@ -1,5 +1,5 @@
 use crossbeam_channel::Sender;
-use muda::{Menu, MenuId, MenuItem, MenuEvent, PredefinedMenuItem, Submenu};
+use muda::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -200,10 +200,14 @@ pub fn create_tray(cmd_tx: Sender<AppCommand>) -> Tray {
     rebuild_transcript_submenu(&transcripts_submenu, &transcript_texts);
 
     menu.append(&toggle_item).expect("Failed to add menu item");
-    menu.append(&PredefinedMenuItem::separator()).expect("Failed to add separator");
-    menu.append(&settings_item).expect("Failed to add menu item");
-    menu.append(&transcripts_submenu).expect("Failed to add submenu");
-    menu.append(&PredefinedMenuItem::separator()).expect("Failed to add separator");
+    menu.append(&PredefinedMenuItem::separator())
+        .expect("Failed to add separator");
+    menu.append(&settings_item)
+        .expect("Failed to add menu item");
+    menu.append(&transcripts_submenu)
+        .expect("Failed to add submenu");
+    menu.append(&PredefinedMenuItem::separator())
+        .expect("Failed to add separator");
     menu.append(&quit_item).expect("Failed to add menu item");
 
     let tray_icon = TrayIconBuilder::new()
@@ -232,7 +236,12 @@ pub fn create_tray(cmd_tx: Sender<AppCommand>) -> Tray {
                     let _ = cmd_tx_menu.send(AppCommand::OpenTranscripts);
                 } else if event.id == quit_id {
                     let _ = cmd_tx_menu.send(AppCommand::Quit);
-                } else if let Some(text) = transcript_texts_menu.lock().unwrap().get(&event.id).cloned() {
+                } else if let Some(text) = transcript_texts_menu
+                    .lock()
+                    .unwrap()
+                    .get(&event.id)
+                    .cloned()
+                {
                     let _ = cmd_tx_menu.send(AppCommand::CopyTranscript(text));
                 }
             }

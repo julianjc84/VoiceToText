@@ -31,7 +31,11 @@ pub fn get_volume() -> Option<u32> {
 /// Set the default sink volume to the given percentage.
 pub fn set_volume(percent: u32) {
     let _ = Command::new("pactl")
-        .args(["set-sink-volume", "@DEFAULT_SINK@", &format!("{}%", percent)])
+        .args([
+            "set-sink-volume",
+            "@DEFAULT_SINK@",
+            &format!("{}%", percent),
+        ])
         .status();
 }
 
@@ -57,11 +61,13 @@ mod tests {
     #[test]
     fn test_parse_volume() {
         // Typical PulseAudio output
-        let output = "Volume: front-left: 49152 /  75% / -7.50 dB,   front-right: 49152 /  75% / -7.50 dB";
+        let output =
+            "Volume: front-left: 49152 /  75% / -7.50 dB,   front-right: 49152 /  75% / -7.50 dB";
         assert_eq!(parse_volume(output), Some(75));
 
         // 100%
-        let output = "Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB";
+        let output =
+            "Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB";
         assert_eq!(parse_volume(output), Some(100));
 
         // 0%

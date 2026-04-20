@@ -116,9 +116,7 @@ pub fn display_shortcut(shortcut: &str) -> String {
                     let mut c = other.chars();
                     match c.next() {
                         None => String::new(),
-                        Some(first) => {
-                            first.to_uppercase().collect::<String>() + c.as_str()
-                        }
+                        Some(first) => first.to_uppercase().collect::<String>() + c.as_str(),
                     }
                 }
             }
@@ -128,10 +126,22 @@ pub fn display_shortcut(shortcut: &str) -> String {
 }
 
 const DANGEROUS_SHORTCUTS: &[&str] = &[
-    "ctrl+c", "ctrl+v", "ctrl+x", "ctrl+z", "ctrl+y",
-    "ctrl+s", "ctrl+w", "ctrl+q", "ctrl+a", "ctrl+f",
-    "ctrl+p", "ctrl+n", "ctrl+t", "ctrl+o",
-    "alt+f4", "ctrl+shift+t",
+    "ctrl+c",
+    "ctrl+v",
+    "ctrl+x",
+    "ctrl+z",
+    "ctrl+y",
+    "ctrl+s",
+    "ctrl+w",
+    "ctrl+q",
+    "ctrl+a",
+    "ctrl+f",
+    "ctrl+p",
+    "ctrl+n",
+    "ctrl+t",
+    "ctrl+o",
+    "alt+f4",
+    "ctrl+shift+t",
 ];
 
 pub fn is_dangerous_shortcut(shortcut: &str) -> bool {
@@ -141,8 +151,24 @@ pub fn is_dangerous_shortcut(shortcut: &str) -> bool {
 
 /// Keys allowed without a modifier.
 const STANDALONE_KEYS: &[&str] = &[
-    "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
-    "scrolllock", "scroll_lock", "pause", "printscreen", "capslock", "numlock",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f7",
+    "f8",
+    "f9",
+    "f10",
+    "f11",
+    "f12",
+    "scrolllock",
+    "scroll_lock",
+    "pause",
+    "printscreen",
+    "capslock",
+    "numlock",
 ];
 
 /// Validate a shortcut string. Returns Ok(()) if valid, Err with message otherwise.
@@ -152,8 +178,14 @@ pub fn validate_shortcut(shortcut: &str) -> Result<(), &'static str> {
     }
 
     let parts: Vec<&str> = shortcut.split('+').collect();
-    let modifiers: Vec<&&str> = parts.iter().filter(|p| matches!(**p, "ctrl" | "alt" | "shift" | "super")).collect();
-    let non_modifiers: Vec<&&str> = parts.iter().filter(|p| !matches!(**p, "ctrl" | "alt" | "shift" | "super")).collect();
+    let modifiers: Vec<&&str> = parts
+        .iter()
+        .filter(|p| matches!(**p, "ctrl" | "alt" | "shift" | "super"))
+        .collect();
+    let non_modifiers: Vec<&&str> = parts
+        .iter()
+        .filter(|p| !matches!(**p, "ctrl" | "alt" | "shift" | "super"))
+        .collect();
 
     if non_modifiers.is_empty() {
         return Err("Press a non-modifier key");
